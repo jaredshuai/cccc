@@ -1,0 +1,54 @@
+# Build outputs
+dist/
+*.exe
+*.app
+*.dmg
+*.deb
+*.rpm
+*.AppImage
+release/
+
+# Electrobun generated outputs
+electrobun/build/
+electrobun/artifacts/
+
+# Electrobun
+.electrobun-cache/
+*.tsbuildinfo
+
+# Nuitka
+*.build/
+*.dist/
+*.onefile-build/
+*.pyd
+*.pyi
+
+# Nuitka cache (persist between builds)
+.nuitka-cache/
+
+# Dependencies
+node_modules/
+
+# Logs
+*.log
+npm-debug.log*
+bun-debug.log
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Build resume state
+.build-state/

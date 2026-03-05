@@ -50,7 +50,7 @@ uv.lock
 # Tests
 
 # Local agent guide (not committed)
-AGENTS.md
+/AGENTS.md
 .claude/skills
 .shared/
 .agents/
