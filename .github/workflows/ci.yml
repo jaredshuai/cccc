@@ -12,6 +12,17 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect web changes
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            web:
+              - 'web/**'
+              - 'src/cccc/ports/web/**'
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -21,11 +32,15 @@ jobs:
           cache-dependency-path: web/package-lock.json
 
       - name: Build Web UI (bundled)
+        if: steps.changes.outputs.web == 'true'
         run: |
           npm ci --prefix web
           npm -C web run lint
           npm -C web run typecheck
           npm -C web run build
+
+      - name: Verify bundled Web UI exists
+        run: |
           test -f src/cccc/ports/web/dist/index.html
 
       - name: Set up Python
