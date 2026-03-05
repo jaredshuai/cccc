@@ -1,0 +1,21 @@
+{
+  "name": "cccc-desktop",
+  "version": "0.4.2",
+  "description": "CCCC Desktop Application - Multi-agent AI collaboration platform",
+  "type": "module",
+  "scripts": {
+    "dev": "bunx electrobun dev",
+    "build": "bunx electrobun build",
+    "build:win": "bunx electrobun build --platform=windows --env=stable",
+    "build:win:dev": "bunx electrobun build --platform=windows --env=dev",
+    "build:mac": "bunx electrobun build --platform=macos",
+    "build:linux": "bunx electrobun build --platform=linux"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "electrobun": "^1.13.0",
+    "typescript": "^5.7.0"
+  },
+  "author": "ChesterRa",
+  "license": "Apache-2.0"
+}
