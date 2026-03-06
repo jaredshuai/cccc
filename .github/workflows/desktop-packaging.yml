@@ -43,6 +43,15 @@ on:
         required: true
         default: true
         type: boolean
+      publish_release:
+        description: "Publish a GitHub Release from this run"
+        required: true
+        default: false
+        type: boolean
+      release_tag:
+        description: "Release tag to create/update (optional)"
+        required: false
+        default: ""
   push:
     tags:
       - "desktop-v*"
@@ -189,12 +198,15 @@ jobs:
           retention-days: 14
 
   release:
-    name: Publish Desktop Artifacts
-    if: startsWith(github.ref, 'refs/tags/desktop-v')
+    name: Publish Desktop Release
+    if: startsWith(github.ref, 'refs/tags/desktop-v') || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish_release == 'true')
     needs: build
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      INPUT_RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.release_tag || '' }}
+      INPUT_CHANNEL: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.channel || 'stable' }}
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@v4
@@ -202,19 +214,116 @@ jobs:
           path: all-artifacts
           merge-multiple: false
 
-      - name: Pack release payloads
+      - name: Prepare release assets
+        id: prep_release
+        shell: bash
         run: |
+          set -euo pipefail
           mkdir -p publish
-          for d in all-artifacts/*; do
-            [ -d "$d" ] || continue
-            name="$(basename "$d")"
-            tar -czf "publish/${name}.tar.gz" -C "$d" .
-          done
+
+          VERSION=$(python - <<'PY'
+import json
+from pathlib import Path
+manifest = next(Path('all-artifacts').rglob('manifest.json'))
+print(json.loads(manifest.read_text(encoding='utf-8'))['version'])
+PY
+)
+
+          if [ -n "${INPUT_RELEASE_TAG}" ]; then
+            TAG_NAME="${INPUT_RELEASE_TAG}"
+          elif [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            TAG_NAME="${GITHUB_REF_NAME}"
+          else
+            TAG_NAME="desktop-v${VERSION}"
+          fi
+
+          RELEASE_NAME="CCCC Desktop ${VERSION}"
+          DOWNLOAD_URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG_NAME}"
+
+          echo "tag_name=${TAG_NAME}" >> "$GITHUB_OUTPUT"
+          echo "release_name=${RELEASE_NAME}" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "download_url=${DOWNLOAD_URL}" >> "$GITHUB_OUTPUT"
+          if [ "${INPUT_CHANNEL}" = "stable" ]; then
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          fi
+
+          export DOWNLOAD_URL VERSION
+          python - <<'PY'
+import json
+import os
+import shutil
+import zipfile
+from pathlib import Path
+
+root = Path('all-artifacts')
+publish = Path('publish')
+publish.mkdir(exist_ok=True)
+assets = []
+
+for manifest_path in root.rglob('manifest.json'):
+    data = json.loads(manifest_path.read_text(encoding='utf-8'))
+    platform = data['platform']
+    version = data['version']
+    base = manifest_path.parent
+
+    if platform == 'windows':
+        installer = next(base.glob('*-Setup.exe'))
+        installer_out = publish / installer.name
+        shutil.copy2(installer, installer_out)
+        assets.append((platform, 'installer', installer_out.name))
+
+        portable_dir = base / 'portable'
+        if portable_dir.exists():
+            portable_name = installer.name.replace('-Setup.exe', '-Portable.zip')
+            portable_zip = publish / portable_name
+            with zipfile.ZipFile(portable_zip, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
+                for item in portable_dir.rglob('*'):
+                    if item.is_file():
+                        archive.write(item, item.relative_to(portable_dir))
+            assets.append((platform, 'portable', portable_zip.name))
+
+        manifest_out = publish / f'{platform}-{version}-manifest.json'
+        shutil.copy2(manifest_path, manifest_out)
+        assets.append((platform, 'manifest', manifest_out.name))
+    else:
+        for item in base.iterdir():
+            if item.is_file() and item.name != 'manifest.json':
+                out = publish / item.name
+                shutil.copy2(item, out)
+                assets.append((platform, 'asset', out.name))
+
+Path('publish/assets.json').write_text(json.dumps(assets, ensure_ascii=False, indent=2), encoding='utf-8')
+
+download_url = os.environ['DOWNLOAD_URL']
+version = os.environ['VERSION']
+lines = [f'# CCCC Desktop {version}', '', '## Windows', '']
+for platform, kind, name in assets:
+    if platform != 'windows':
+        continue
+    if kind == 'installer':
+        lines.append(f'- 安装包: [{name}]({download_url}/{name})')
+    elif kind == 'portable':
+        lines.append(f'- Portable: [{name}]({download_url}/{name})')
+    elif kind == 'manifest':
+        lines.append(f'- Manifest: [{name}]({download_url}/{name})')
+
+lines.extend(['', 'Created by GitHub Actions.'])
+Path('publish/release.md').write_text('\n'.join(lines) + '\n', encoding='utf-8')
+PY
+
           ls -lah publish
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: publish/*.tar.gz
-          generate_release_notes: true
-
+          tag_name: ${{ steps.prep_release.outputs.tag_name }}
+          name: ${{ steps.prep_release.outputs.release_name }}
+          body_path: publish/release.md
+          prerelease: ${{ steps.prep_release.outputs.prerelease == 'true' }}
+          files: |
+            publish/*.exe
+            publish/*.zip
+            publish/*manifest.json
