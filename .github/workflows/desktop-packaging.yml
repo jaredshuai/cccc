@@ -16,6 +16,16 @@ on:
           - app
           - bundle
           - verify
+      platform:
+        description: "Target platform for manual run"
+        required: true
+        default: "windows"
+        type: choice
+        options:
+          - windows
+          - macos
+          - linux
+          - all
       channel:
         description: "Build channel"
         required: true
@@ -46,6 +56,7 @@ concurrency:
 
 jobs:
   build:
+    if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.platform == 'all' || github.event.inputs.platform == matrix.platform }}
     name: Build (${{ matrix.platform }})
     runs-on: ${{ matrix.runner }}
     strategy:
