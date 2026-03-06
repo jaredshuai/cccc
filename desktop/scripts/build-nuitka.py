@@ -98,7 +98,6 @@ def _base_build_command(
         "nuitka",
         f"--output-filename={output_filename}",
         f"--output-dir={OUTPUT_DIR}",
-        "--mingw64",
         "--enable-plugin=anti-bloat",
         "--no-debug-c-warnings",
         f"--jobs={max(1, (os.cpu_count() or 2) - 1)}",
@@ -118,10 +117,11 @@ def _base_build_command(
     else:
         cmd.append("--standalone")
 
-    if current == "windows" or target == "windows":
+    if target == "windows":
+        cmd.append("--mingw64")
         cmd.append("--windows-console-mode=disable")
 
-    if current == "macos" or target == "macos":
+    if target == "macos":
         cmd.extend(
             [
                 "--macos-create-app-bundle",

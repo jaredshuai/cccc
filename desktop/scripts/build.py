@@ -560,6 +560,8 @@ def stage_backend(ctx: BuildContext) -> None:
     cmd = [
         "uv",
         "run",
+        "--with",
+        "nuitka",
         "python",
         str(SCRIPT_DIR / "build-nuitka.py"),
         "--platform",
