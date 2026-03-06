@@ -172,6 +172,8 @@ bun run build:linux   # Linux
 | Electrobun 构建归档 | `desktop/electrobun/artifacts/` |
 | 统一发布目录 | `desktop/release/<platform>/<channel>/<version>/` |
 | 发布清单 | `desktop/release/<platform>/<channel>/<version>/manifest.json` |
+| CI 交付目录 | `desktop/delivery/<platform>/<channel>/<version>/` |
+| CI 交付清单 | `desktop/delivery/<platform>/<channel>/<version>/manifest.json` |
 | Windows Portable 入口 | `desktop/release/windows/<channel>/<version>/portable/bin/launcher.exe` |
 | Windows 安装包 | `desktop/release/windows/<channel>/<version>/<channel>-win-x64-*-Setup.exe` |
 

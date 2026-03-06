@@ -192,6 +192,15 @@ def copy_file(src: Path, dst: Path) -> None:
     shutil.copy2(src, dst)
 
 
+def summarize_file(path: Path, root: Path) -> dict[str, object]:
+    return {
+        "type": "file",
+        "path": str(path.relative_to(root)).replace("\\", "/"),
+        "size": path.stat().st_size,
+        "sha256": sha256_file(path),
+    }
+
+
 def summarize_dir(path: Path) -> dict[str, object]:
     file_count = 0
     total_size = 0
@@ -417,6 +426,10 @@ class BuildContext:
         return DESKTOP_DIR / "release" / self.platform / self.channel / self.version
 
     @property
+    def delivery_root(self) -> Path:
+        return DESKTOP_DIR / "delivery" / self.platform / self.channel / self.version
+
+    @property
     def backend_exe(self) -> Path:
         return backend_binary_path(self.platform)
 
@@ -636,8 +649,13 @@ def stage_bundle(ctx: BuildContext) -> None:
         shutil.rmtree(ctx.release_root)
     ensure_dir(ctx.release_root)
 
+    if ctx.delivery_root.exists():
+        shutil.rmtree(ctx.delivery_root)
+    ensure_dir(ctx.delivery_root)
+
     info("[bundle] collecting artifacts")
     artifacts_summary: list[dict[str, object]] = []
+    delivery_summary: list[dict[str, object]] = []
 
     # backend
     backend_dst = ctx.release_root / "cccc-backend"
@@ -654,21 +672,14 @@ def stage_bundle(ctx: BuildContext) -> None:
         artifacts_summary.append(summarize_dir(dst))
 
     # app artifact files
+    artifact_files = find_channel_artifact_files(ctx.channel, ctx.platform)
     release_artifacts_dir = ctx.release_root / "artifacts"
     ensure_dir(release_artifacts_dir)
-    for src in find_channel_artifact_files(ctx.channel, ctx.platform):
+    for src in artifact_files:
         dst = release_artifacts_dir / src.name
         copy_file(src, dst)
-        artifacts_summary.append(
-            {
-                "type": "file",
-                "path": str(dst.relative_to(ctx.release_root)).replace("\\", "/"),
-                "size": dst.stat().st_size,
-                "sha256": sha256_file(dst),
-            }
-        )
+        artifacts_summary.append(summarize_file(dst, ctx.release_root))
 
-    # Windows explicit outputs for fast access.
     if ctx.platform == "windows":
         primary = channel_dirs[0]
         setup_exe, setup_archive = find_windows_setup_files(primary, ctx.app_name)
@@ -682,23 +693,22 @@ def stage_bundle(ctx: BuildContext) -> None:
         copy_file(setup_archive, friendly_setup_archive)
         mirror_dir(portable_dir, friendly_portable)
 
-        artifacts_summary.append(
-            {
-                "type": "file",
-                "path": friendly_setup_exe.name,
-                "size": friendly_setup_exe.stat().st_size,
-                "sha256": sha256_file(friendly_setup_exe),
-            }
-        )
-        artifacts_summary.append(
-            {
-                "type": "file",
-                "path": friendly_setup_archive.name,
-                "size": friendly_setup_archive.stat().st_size,
-                "sha256": sha256_file(friendly_setup_archive),
-            }
-        )
+        artifacts_summary.append(summarize_file(friendly_setup_exe, ctx.release_root))
+        artifacts_summary.append(summarize_file(friendly_setup_archive, ctx.release_root))
         artifacts_summary.append(summarize_dir(friendly_portable))
+
+        delivery_setup_exe = ctx.delivery_root / friendly_setup_exe.name
+        delivery_portable = ctx.delivery_root / "portable"
+        copy_file(friendly_setup_exe, delivery_setup_exe)
+        mirror_dir(friendly_portable, delivery_portable)
+
+        delivery_summary.append(summarize_file(delivery_setup_exe, ctx.delivery_root))
+        delivery_summary.append(summarize_dir(delivery_portable))
+    else:
+        for src in artifact_files:
+            dst = ctx.delivery_root / src.name
+            copy_file(src, dst)
+            delivery_summary.append(summarize_file(dst, ctx.delivery_root))
 
     web_dist = resolve_web_dist_dir()
     web_hash_file = resolve_web_hash_file(web_dist)
@@ -715,9 +725,18 @@ def stage_bundle(ctx: BuildContext) -> None:
     manifest_path = ctx.release_root / "manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
 
+    delivery_manifest = dict(manifest)
+    delivery_manifest["artifacts"] = delivery_summary
+    delivery_manifest_path = ctx.delivery_root / "manifest.json"
+    delivery_manifest_path.write_text(
+        json.dumps(delivery_manifest, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
     ctx.write_marker("bundle")
     ctx.clear_downstream("bundle")
     ok(f"[bundle] done -> {ctx.release_root}")
+    info(f"[bundle] delivery -> {ctx.delivery_root}")
 
 
 def stage_verify(ctx: BuildContext) -> None:
@@ -781,6 +800,7 @@ def clean_all() -> None:
     paths = [
         DESKTOP_DIR / ".build-state",
         DESKTOP_DIR / "release",
+        DESKTOP_DIR / "delivery",
         DESKTOP_DIR / "dist",
         ELECTROBUN_DIST_DIR,
         ELECTROBUN_ARTIFACTS_DIR,
