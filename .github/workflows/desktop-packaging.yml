@@ -52,12 +52,13 @@ permissions:
 
 concurrency:
   group: desktop-packaging-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build:
     name: Build (${{ matrix.platform }})
     runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
@@ -119,8 +120,39 @@ jobs:
             cmake \
             pkg-config
 
-      - name: Build desktop (Windows)
-        if: steps.platform_gate.outputs.skip != 'true' && runner.os == 'Windows'
+      - name: Build prep (Windows)
+        if: steps.platform_gate.outputs.skip != 'true' && runner.os == 'Windows' && env.BUILD_STAGE == 'all'
+        timeout-minutes: 10
+        run: |
+          cmd /c desktop\scripts\build.cmd --stage prep --platform windows --channel %BUILD_CHANNEL% --version %BUILD_VERSION%
+
+      - name: Build web (Windows)
+        if: steps.platform_gate.outputs.skip != 'true' && runner.os == 'Windows' && env.BUILD_STAGE == 'all'
+        timeout-minutes: 20
+        run: |
+          cmd /c desktop\scripts\build.cmd --stage web --platform windows --channel %BUILD_CHANNEL% --version %BUILD_VERSION%
+
+      - name: Build backend (Windows)
+        if: steps.platform_gate.outputs.skip != 'true' && runner.os == 'Windows' && env.BUILD_STAGE == 'all'
+        timeout-minutes: 90
+        run: |
+          cmd /c desktop\scripts\build.cmd --stage backend --platform windows --channel %BUILD_CHANNEL% --version %BUILD_VERSION%
+
+      - name: Build app (Windows)
+        if: steps.platform_gate.outputs.skip != 'true' && runner.os == 'Windows' && env.BUILD_STAGE == 'all'
+        timeout-minutes: 30
+        run: |
+          cmd /c desktop\scripts\build.cmd --stage app --platform windows --channel %BUILD_CHANNEL% --version %BUILD_VERSION%
+
+      - name: Build bundle (Windows)
+        if: steps.platform_gate.outputs.skip != 'true' && runner.os == 'Windows' && env.BUILD_STAGE == 'all'
+        timeout-minutes: 20
+        run: |
+          cmd /c desktop\scripts\build.cmd --stage bundle --platform windows --channel %BUILD_CHANNEL% --version %BUILD_VERSION%
+
+      - name: Build desktop selected stage (Windows)
+        if: steps.platform_gate.outputs.skip != 'true' && runner.os == 'Windows' && env.BUILD_STAGE != 'all'
+        timeout-minutes: 90
         run: |
           cmd /c desktop\scripts\build.cmd --stage %BUILD_STAGE% --platform windows --channel %BUILD_CHANNEL% --version %BUILD_VERSION%
 
