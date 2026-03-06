@@ -38,6 +38,7 @@ on:
         description: "Build version label (auto or custom)"
         required: true
         default: "auto"
+        type: string
       upload_artifacts:
         description: "Upload desktop artifacts"
         required: true
@@ -52,6 +53,7 @@ on:
         description: "Release tag to create/update (optional)"
         required: false
         default: ""
+        type: string
   push:
     tags:
       - "desktop-v*"
