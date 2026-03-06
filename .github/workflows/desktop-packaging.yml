@@ -223,13 +223,8 @@ jobs:
           set -euo pipefail
           mkdir -p publish
 
-          VERSION=$(python - <<'PY'
-import json
-from pathlib import Path
-manifest = next(Path('all-artifacts').rglob('manifest.json'))
-print(json.loads(manifest.read_text(encoding='utf-8'))['version'])
-PY
-)
+          MANIFEST=$(find all-artifacts -type f -name 'manifest.json' | head -n 1)
+          VERSION=$(jq -r '.version' "$MANIFEST")
 
           if [ -n "${INPUT_RELEASE_TAG}" ]; then
             TAG_NAME="${INPUT_RELEASE_TAG}"
@@ -242,79 +237,37 @@ PY
           RELEASE_NAME="CCCC Desktop ${VERSION}"
           DOWNLOAD_URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG_NAME}"
 
+          INSTALLER=$(find all-artifacts -type f -name '*-Setup.exe' | head -n 1)
+          cp "$INSTALLER" publish/
+          INSTALLER_NAME=$(basename "$INSTALLER")
+
+          PORTABLE_DIR=$(find all-artifacts -type d -name portable | head -n 1)
+          if [ -n "${PORTABLE_DIR}" ]; then
+            PORTABLE_NAME="${INSTALLER_NAME/-Setup.exe/-Portable.zip}"
+            (cd "$PORTABLE_DIR" && zip -qr "$OLDPWD/publish/$PORTABLE_NAME" .)
+          fi
+
+          cp "$MANIFEST" "publish/windows-${VERSION}-manifest.json"
+
+          cat > publish/release.md <<EOF
+          # CCCC Desktop ${VERSION}
+
+          ## Windows
+
+          - 安装包: [${INSTALLER_NAME}](${DOWNLOAD_URL}/${INSTALLER_NAME})
+          - Portable: [${PORTABLE_NAME}](${DOWNLOAD_URL}/${PORTABLE_NAME})
+          - Manifest: [windows-${VERSION}-manifest.json](${DOWNLOAD_URL}/windows-${VERSION}-manifest.json)
+
+          Created by GitHub Actions.
+          EOF
+
           echo "tag_name=${TAG_NAME}" >> "$GITHUB_OUTPUT"
           echo "release_name=${RELEASE_NAME}" >> "$GITHUB_OUTPUT"
-          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-          echo "download_url=${DOWNLOAD_URL}" >> "$GITHUB_OUTPUT"
           if [ "${INPUT_CHANNEL}" = "stable" ]; then
             echo "prerelease=false" >> "$GITHUB_OUTPUT"
           else
             echo "prerelease=true" >> "$GITHUB_OUTPUT"
           fi
-
-          export DOWNLOAD_URL VERSION
-          python - <<'PY'
-import json
-import os
-import shutil
-import zipfile
-from pathlib import Path
-
-root = Path('all-artifacts')
-publish = Path('publish')
-publish.mkdir(exist_ok=True)
-assets = []
-
-for manifest_path in root.rglob('manifest.json'):
-    data = json.loads(manifest_path.read_text(encoding='utf-8'))
-    platform = data['platform']
-    version = data['version']
-    base = manifest_path.parent
-
-    if platform == 'windows':
-        installer = next(base.glob('*-Setup.exe'))
-        installer_out = publish / installer.name
-        shutil.copy2(installer, installer_out)
-        assets.append((platform, 'installer', installer_out.name))
-
-        portable_dir = base / 'portable'
-        if portable_dir.exists():
-            portable_name = installer.name.replace('-Setup.exe', '-Portable.zip')
-            portable_zip = publish / portable_name
-            with zipfile.ZipFile(portable_zip, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
-                for item in portable_dir.rglob('*'):
-                    if item.is_file():
-                        archive.write(item, item.relative_to(portable_dir))
-            assets.append((platform, 'portable', portable_zip.name))
-
-        manifest_out = publish / f'{platform}-{version}-manifest.json'
-        shutil.copy2(manifest_path, manifest_out)
-        assets.append((platform, 'manifest', manifest_out.name))
-    else:
-        for item in base.iterdir():
-            if item.is_file() and item.name != 'manifest.json':
-                out = publish / item.name
-                shutil.copy2(item, out)
-                assets.append((platform, 'asset', out.name))
-
-Path('publish/assets.json').write_text(json.dumps(assets, ensure_ascii=False, indent=2), encoding='utf-8')
-
-download_url = os.environ['DOWNLOAD_URL']
-version = os.environ['VERSION']
-lines = [f'# CCCC Desktop {version}', '', '## Windows', '']
-for platform, kind, name in assets:
-    if platform != 'windows':
-        continue
-    if kind == 'installer':
-        lines.append(f'- 安装包: [{name}]({download_url}/{name})')
-    elif kind == 'portable':
-        lines.append(f'- Portable: [{name}]({download_url}/{name})')
-    elif kind == 'manifest':
-        lines.append(f'- Manifest: [{name}]({download_url}/{name})')
-
-lines.extend(['', 'Created by GitHub Actions.'])
-Path('publish/release.md').write_text('\n'.join(lines) + '\n', encoding='utf-8')
-PY
 
           ls -lah publish
 
