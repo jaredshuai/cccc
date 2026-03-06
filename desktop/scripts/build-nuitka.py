@@ -29,6 +29,17 @@ CACHE_DIR = Path(__file__).parent / ".nuitka-cache"
 LEGACY_OUTPUT_DIR = Path(__file__).parent / "dist"
 
 
+def _windows_compiler_choice() -> str:
+    compiler = os.environ.get("CCCC_NUITKA_WINDOWS_COMPILER", "mingw64").strip().lower()
+    if compiler in {"", "auto"}:
+        return "mingw64"
+    if compiler not in {"mingw64", "msvc"}:
+        raise ValueError(
+            "CCCC_NUITKA_WINDOWS_COMPILER must be one of: mingw64, msvc, auto"
+        )
+    return compiler
+
+
 def setup_cache_env() -> dict[str, str]:
     """Setup cache environment variables for faster recompilation."""
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -118,7 +129,11 @@ def _base_build_command(
         cmd.append("--standalone")
 
     if target == "windows":
-        cmd.append("--mingw64")
+        windows_compiler = _windows_compiler_choice()
+        if windows_compiler == "msvc":
+            cmd.append("--msvc=latest")
+        else:
+            cmd.append("--mingw64")
         cmd.append("--windows-console-mode=disable")
 
     if target == "macos":
@@ -189,6 +204,8 @@ def _run_nuitka_build(
     print(f"[Nuitka] Entry point: {BACKEND_WRAPPER_ENTRY}")
     print(f"[Nuitka] Cache dir: {CACHE_DIR}")
     print(f"[Nuitka] Mode: {'fast(ccache)' if fast_mode else 'normal'} + {'onefile' if onefile else 'standalone'}")
+    if _target_platform(target_platform) == "windows":
+        print(f"[Nuitka] Windows compiler: {_windows_compiler_choice()}")
 
     env = setup_cache_env()
     if fast_mode:

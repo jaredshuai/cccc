@@ -58,7 +58,7 @@ jobs:
   build:
     name: Build (${{ matrix.platform }})
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 120
+    timeout-minutes: 300
     strategy:
       fail-fast: false
       matrix:
@@ -107,6 +107,19 @@ jobs:
         with:
           bun-version: "1.3.8"
 
+      - name: Restore Nuitka cache (Windows)
+        if: steps.platform_gate.outputs.skip != 'true' && runner.os == 'Windows'
+        uses: actions/cache@v4
+        with:
+          path: desktop/scripts/.nuitka-cache
+          key: nuitka-windows-${{ hashFiles('desktop/scripts/build-nuitka.py', 'desktop/scripts/build.py', 'pyproject.toml') }}
+          restore-keys: |
+            nuitka-windows-
+
+      - name: Setup MSVC toolchain (Windows)
+        if: steps.platform_gate.outputs.skip != 'true' && runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+
       - name: Install Linux build dependencies
         if: steps.platform_gate.outputs.skip != 'true' && runner.os == 'Linux'
         run: |
@@ -134,7 +147,9 @@ jobs:
 
       - name: Build backend (Windows)
         if: steps.platform_gate.outputs.skip != 'true' && runner.os == 'Windows' && env.BUILD_STAGE == 'all'
-        timeout-minutes: 90
+        timeout-minutes: 180
+        env:
+          CCCC_NUITKA_WINDOWS_COMPILER: msvc
         run: |
           cmd /c desktop\scripts\build.cmd --stage backend --platform windows --channel %BUILD_CHANNEL% --version %BUILD_VERSION%
 
@@ -152,7 +167,9 @@ jobs:
 
       - name: Build desktop selected stage (Windows)
         if: steps.platform_gate.outputs.skip != 'true' && runner.os == 'Windows' && env.BUILD_STAGE != 'all'
-        timeout-minutes: 90
+        timeout-minutes: 180
+        env:
+          CCCC_NUITKA_WINDOWS_COMPILER: msvc
         run: |
           cmd /c desktop\scripts\build.cmd --stage %BUILD_STAGE% --platform windows --channel %BUILD_CHANNEL% --version %BUILD_VERSION%
 
@@ -200,3 +217,4 @@ jobs:
         with:
           files: publish/*.tar.gz
           generate_release_notes: true
+
