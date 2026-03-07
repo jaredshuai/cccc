@@ -12,6 +12,7 @@ from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = SCRIPT_DIR.parents[1]
+VENDORED_ZH_CN_ISL = PROJECT_ROOT / "desktop" / "resources" / "inno" / "ChineseSimplified.isl"
 
 
 class InstallerError(RuntimeError):
@@ -48,6 +49,17 @@ def find_iscc() -> Path:
     raise InstallerError("ISCC.exe not found; install Inno Setup first")
 
 
+def resolve_zh_cn_language_file(iscc: Path) -> Path | None:
+    if VENDORED_ZH_CN_ISL.exists():
+        return VENDORED_ZH_CN_ISL
+
+    runner_copy = iscc.parent / "Languages" / "ChineseSimplified.isl"
+    if runner_copy.exists():
+        return runner_copy
+
+    return None
+
+
 def summarize_file(path: Path, root: Path) -> dict[str, object]:
     import hashlib
 
@@ -81,7 +93,7 @@ def build_script_text(*, include_zh_cn: bool) -> str:
     ]
     if include_zh_cn:
         languages.append(
-            'Name: "chinesesimplified"; MessagesFile: "compiler:Languages\\ChineseSimplified.isl"'
+            'Name: "chinesesimplified"; MessagesFile: "ChineseSimplified.isl"'
         )
 
     script = r'''
@@ -167,13 +179,15 @@ def main() -> int:
 
     iscc = find_iscc()
     app_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, args.app_identifier))
-    language_file = iscc.parent / "Languages" / "ChineseSimplified.isl"
+    language_file = resolve_zh_cn_language_file(iscc)
 
     with tempfile.TemporaryDirectory(prefix="cccc-inno-") as temp_dir:
         temp_path = Path(temp_dir)
         script_path = temp_path / "cccc-desktop.iss"
+        if language_file:
+            shutil.copy2(language_file, temp_path / "ChineseSimplified.isl")
         script_path.write_text(
-            build_script_text(include_zh_cn=language_file.exists()),
+            build_script_text(include_zh_cn=language_file is not None),
             encoding="utf-8",
         )
 
