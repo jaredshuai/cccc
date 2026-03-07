@@ -698,11 +698,14 @@ def stage_bundle(ctx: BuildContext) -> None:
         artifacts_summary.append(summarize_dir(friendly_portable))
 
         delivery_setup_exe = ctx.delivery_root / friendly_setup_exe.name
+        delivery_setup_archive = ctx.delivery_root / friendly_setup_archive.name
         delivery_portable = ctx.delivery_root / "portable"
         copy_file(friendly_setup_exe, delivery_setup_exe)
+        copy_file(friendly_setup_archive, delivery_setup_archive)
         mirror_dir(friendly_portable, delivery_portable)
 
         delivery_summary.append(summarize_file(delivery_setup_exe, ctx.delivery_root))
+        delivery_summary.append(summarize_file(delivery_setup_archive, ctx.delivery_root))
         delivery_summary.append(summarize_dir(delivery_portable))
     else:
         for src in artifact_files:

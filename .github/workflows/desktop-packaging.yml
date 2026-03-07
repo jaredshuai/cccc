@@ -241,6 +241,10 @@ jobs:
           cp "$INSTALLER" publish/
           INSTALLER_NAME=$(basename "$INSTALLER")
 
+          INSTALLER_ARCHIVE=$(find all-artifacts -type f -name '*-Setup.tar.zst' | head -n 1)
+          cp "$INSTALLER_ARCHIVE" publish/
+          INSTALLER_ARCHIVE_NAME=$(basename "$INSTALLER_ARCHIVE")
+
           PORTABLE_DIR=$(find all-artifacts -type d -name portable | head -n 1)
           if [ -n "${PORTABLE_DIR}" ]; then
             PORTABLE_NAME="${INSTALLER_NAME/-Setup.exe/-Portable.zip}"
@@ -254,9 +258,12 @@ jobs:
 
           ## Windows
 
-          - 安装包: [${INSTALLER_NAME}](${DOWNLOAD_URL}/${INSTALLER_NAME})
+          - 安装引导器: [${INSTALLER_NAME}](${DOWNLOAD_URL}/${INSTALLER_NAME})
+          - 安装数据包: [${INSTALLER_ARCHIVE_NAME}](${DOWNLOAD_URL}/${INSTALLER_ARCHIVE_NAME})
           - Portable: [${PORTABLE_NAME}](${DOWNLOAD_URL}/${PORTABLE_NAME})
           - Manifest: [windows-${VERSION}-manifest.json](${DOWNLOAD_URL}/windows-${VERSION}-manifest.json)
+
+          说明：Windows 安装版需要同时下载 `Setup.exe` 与同名 `Setup.tar.zst`，放在同一目录后再运行。
 
           Created by GitHub Actions.
           EOF
@@ -280,5 +287,6 @@ jobs:
           prerelease: ${{ steps.prep_release.outputs.prerelease == 'true' }}
           files: |
             publish/*.exe
+            publish/*.tar.zst
             publish/*.zip
             publish/*manifest.json
