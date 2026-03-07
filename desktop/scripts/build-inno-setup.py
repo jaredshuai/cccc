@@ -87,7 +87,7 @@ def build_script_text() -> str:
   #define AppPublisher "ChesterRa"
 #endif
 #ifndef AppId
-  #define AppId "{{00000000-0000-0000-0000-000000000000}}"
+  #define AppId "00000000-0000-0000-0000-000000000000"
 #endif
 #ifndef SourceDir
   #error SourceDir is not defined
@@ -100,7 +100,7 @@ def build_script_text() -> str:
 #endif
 
 [Setup]
-AppId={#AppId}
+AppId={{{#AppId}}}
 AppName={#AppName}
 AppVersion={#AppVersion}
 AppPublisher={#AppPublisher}
@@ -158,7 +158,7 @@ def main() -> int:
         path.unlink(missing_ok=True)
 
     iscc = find_iscc()
-    app_id = "{" + str(uuid.uuid5(uuid.NAMESPACE_DNS, args.app_identifier)) + "}"
+    app_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, args.app_identifier))
 
     with tempfile.TemporaryDirectory(prefix="cccc-inno-") as temp_dir:
         temp_path = Path(temp_dir)
