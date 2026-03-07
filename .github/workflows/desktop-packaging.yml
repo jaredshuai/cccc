@@ -275,11 +275,24 @@ jobs:
           cat > publish/release.md <<EOF
           # CCCC Desktop ${VERSION}
 
-          ## Windows
+          ## 下载地址
 
-          - 安装包: [${INSTALLER_NAME}](${DOWNLOAD_URL}/${INSTALLER_NAME})
-          - Portable: [${PORTABLE_NAME}](${DOWNLOAD_URL}/${PORTABLE_NAME})
-          - Manifest: [windows-${VERSION}-manifest.json](${DOWNLOAD_URL}/windows-${VERSION}-manifest.json)
+          ### Windows
+
+          #### 安装版（推荐）
+          - [${INSTALLER_NAME}](${DOWNLOAD_URL}/${INSTALLER_NAME})
+
+          #### Portable 便携版
+          - [${PORTABLE_NAME}](${DOWNLOAD_URL}/${PORTABLE_NAME})
+
+          #### 校验与清单
+          - [windows-${VERSION}-manifest.json](${DOWNLOAD_URL}/windows-${VERSION}-manifest.json)
+
+          ## 说明
+
+          - 安装版为单文件 `.exe`，双击即可安装。
+          - Portable 便携版解压后可直接运行，无需安装。
+          - 若后续出现首屏遮挡或布局异常，优先使用本页最新版本重新下载验证。
 
           Created by GitHub Actions.
           EOF
