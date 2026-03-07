@@ -75,8 +75,16 @@ def summarize_dir(path: Path) -> dict[str, object]:
     }
 
 
-def build_script_text() -> str:
-    return r'''
+def build_script_text(*, include_zh_cn: bool) -> str:
+    languages = [
+        'Name: "english"; MessagesFile: "compiler:Default.isl"',
+    ]
+    if include_zh_cn:
+        languages.append(
+            'Name: "chinesesimplified"; MessagesFile: "compiler:Languages\\ChineseSimplified.isl"'
+        )
+
+    script = r'''
 #ifndef AppName
   #define AppName "CCCC"
 #endif
@@ -119,8 +127,7 @@ DisableProgramGroupPage=yes
 SetupLogging=yes
 
 [Languages]
-Name: "english"; MessagesFile: "compiler:Default.isl"
-Name: "chinesesimplified"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
+__LANGUAGES__
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Additional icons:"; Flags: unchecked
@@ -136,6 +143,7 @@ Name: "{autodesktop}\{#AppName}"; Filename: "{app}\bin\launcher.exe"; Tasks: des
 [Run]
 Filename: "{app}\bin\launcher.exe"; Description: "Launch {#AppName}"; Flags: nowait postinstall skipifsilent
 '''.lstrip()
+    return script.replace("__LANGUAGES__", "\n".join(languages))
 
 
 def main() -> int:
@@ -159,11 +167,15 @@ def main() -> int:
 
     iscc = find_iscc()
     app_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, args.app_identifier))
+    language_file = iscc.parent / "Languages" / "ChineseSimplified.isl"
 
     with tempfile.TemporaryDirectory(prefix="cccc-inno-") as temp_dir:
         temp_path = Path(temp_dir)
         script_path = temp_path / "cccc-desktop.iss"
-        script_path.write_text(build_script_text(), encoding="utf-8")
+        script_path.write_text(
+            build_script_text(include_zh_cn=language_file.exists()),
+            encoding="utf-8",
+        )
 
         cmd = [
             str(iscc),
