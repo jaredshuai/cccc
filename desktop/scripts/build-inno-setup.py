@@ -148,12 +148,12 @@ Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription:
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{group}\{#AppName}"; Filename: "{app}\bin\launcher.exe"
+Name: "{group}\{#AppName}"; Filename: "{app}\bin\launcher.exe"; WorkingDir: "{app}"
 Name: "{group}\Uninstall {#AppName}"; Filename: "{uninstallexe}"
-Name: "{autodesktop}\{#AppName}"; Filename: "{app}\bin\launcher.exe"; Tasks: desktopicon
+Name: "{autodesktop}\{#AppName}"; Filename: "{app}\bin\launcher.exe"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\bin\launcher.exe"; Description: "Launch {#AppName}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\bin\launcher.exe"; WorkingDir: "{app}"; Description: "Launch {#AppName}"; Flags: nowait postinstall skipifsilent
 '''.lstrip()
     return script.replace("__LANGUAGES__", "\n".join(languages))
 
@@ -223,3 +223,4 @@ if __name__ == "__main__":
     except InstallerError as exc:
         print(f"[ERROR] {exc}", file=sys.stderr)
         raise SystemExit(1)
+
